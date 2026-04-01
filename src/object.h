@@ -83,7 +83,7 @@ class Object {
         return model;
     }
 
-    void draw(unsigned int shaderProgram, bool cpuTransform, Camera& camera) {
+    void draw(unsigned int shaderProgram, bool cpuTransform, Camera& camera, bool zBufferView = false) {
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
 
@@ -103,6 +103,7 @@ class Object {
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
+            glUniform1i(glGetUniformLocation(shaderProgram, "zBufferView"), zBufferView ? 1 : 0);
 
             glBindBuffer(GL_ARRAY_BUFFER, VBO);
             glBufferData(GL_ARRAY_BUFFER, transformed.size() * sizeof(float), transformed.data(), GL_DYNAMIC_DRAW);
@@ -115,6 +116,7 @@ class Object {
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));
+            glUniform1i(glGetUniformLocation(shaderProgram, "zBufferView"), zBufferView ? 1 : 0);
         }
 
         if (useEBO) {

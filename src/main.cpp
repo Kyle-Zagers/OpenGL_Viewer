@@ -14,7 +14,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, Camera& camera);
+void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, bool& zBufferView, Camera& camera);
 
 // settings
 const unsigned int SCR_WIDTH = 1920;
@@ -121,13 +121,14 @@ int main()
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    glm::vec3 obj1Pos = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::vec3 obj2Pos = glm::vec3(10.0f, 2.0f, 0.0f);
+    glm::vec3 obj1Pos = glm::vec3(60.0f, 0.0f, 0.0f);
+    glm::vec3 obj2Pos = glm::vec3(0.0f, 2.0f, 0.0f);
+    glm::vec3 obj3Pos = glm::vec3(30.0f, 0.0f, 0.0f);
     
     std::vector<Object*> objects;
     objects.emplace_back(new Object("../src/models/teapot.obj", obj1Pos, 1.0f, 1.0f, 1.0f, true, true));
     objects.emplace_back(new Object("../src/models/ncc1701b.obj", obj2Pos, 0.0f, 1.0f, 0.0f, true));
-
+    objects.emplace_back(new Object("../src/models/cube.obj", obj3Pos, 1.0f, 0.0f, 0.0f, true));
     auto axis = obj2Pos - obj1Pos;
 
     glm::mat4 translateToOrigin = glm::translate(glm::mat4(1.0f), -obj1Pos);
@@ -171,6 +172,7 @@ int main()
 
     bool rotate = false;
     bool cpuTransform = false;
+    bool zBufferView = false;
 
     // render loop
     // -----------
@@ -178,7 +180,7 @@ int main()
     {
         // input
         // -----
-        processInput(window, rotate, cpuTransform, camera);
+        processInput(window, rotate, cpuTransform, zBufferView, camera);
 
         // render
         // ------
@@ -191,7 +193,7 @@ int main()
                 obj->applyTransformation(rotationMatrix);
             }
 
-            obj->draw(shaderProgram, cpuTransform, camera);
+            obj->draw(shaderProgram, cpuTransform, camera, zBufferView);
         }
  
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -216,14 +218,19 @@ int main()
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
-void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, Camera& camera)
+void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, bool& zBufferView, Camera& camera)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
+        glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+
+    if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
+        zBufferView = !zBufferView;
     
     // move camera
     float offset = 0.1f;
