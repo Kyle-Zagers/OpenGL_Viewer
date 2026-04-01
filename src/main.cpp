@@ -7,13 +7,14 @@
 #include <iostream>
 #include <fstream>
 #include "object.h"
+#include "camera.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, glm::vec3& cameraPos, glm::mat4& view, glm::mat4& projection);
+void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, Camera& camera);
 
 // settings
 const unsigned int SCR_WIDTH = 1920;
@@ -62,6 +63,7 @@ int main()
     // // glew: load all OpenGL function pointers
     glewInit();
     glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GREATER);
 
 
     // build and compile our shader program
@@ -165,25 +167,7 @@ int main()
                 << rotationMatrix[2][0] << " " << rotationMatrix[2][1] << " " << rotationMatrix[2][2] << " " << rotationMatrix[2][3] << "\n"
                 << rotationMatrix[3][0] << " " << rotationMatrix[3][1] << " " << rotationMatrix[3][2] << " " << rotationMatrix[3][3] << std::endl;
 
-    glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
-    glm::mat4 view = glm::mat4(1.0f);
-
-    float n, f, r, l, t, b;
-
-    n = 1.0f;
-    f = 100.0f;
-    r = 1.0f;
-    l = -1.0f;
-    t = 1.0f;
-    b = -1.0f;
-
-    glm::mat4 projection = glm::mat4(
-        (2*n)/(r-l), 0, (r+l)/(r-l), 0,
-        0, (2*n)/(t-b), (t+b)/(t-b), 0,
-        0, 0, -(f+n)/(f-n), (-2*n*f)/(f-n),
-        0, 0, -1, 0
-    );
-    projection = glm::transpose(projection);
+    Camera camera = Camera();
 
     bool rotate = false;
     bool cpuTransform = false;
@@ -194,11 +178,12 @@ int main()
     {
         // input
         // -----
-        processInput(window, rotate, cpuTransform, cameraPos, view, projection);
+        processInput(window, rotate, cpuTransform, camera);
 
         // render
         // ------
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClearDepth(0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         for (auto& obj : objects) {
@@ -206,7 +191,7 @@ int main()
                 obj->applyTransformation(rotationMatrix);
             }
 
-            obj->draw(shaderProgram, cpuTransform, cameraPos, view, projection);
+            obj->draw(shaderProgram, cpuTransform, camera);
         }
  
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -231,7 +216,7 @@ int main()
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
-void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, glm::vec3& cameraPos, glm::mat4& view, glm::mat4& projection)
+void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, Camera& camera)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
@@ -243,33 +228,41 @@ void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, glm::vec
     // move camera
     float offset = 0.1f;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        cameraPos -= offset * glm::vec3(view[0][2], view[1][2], view[2][2]);
+        camera.moveForward(offset);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        cameraPos += offset * glm::vec3(view[0][2], view[1][2], view[2][2]);
+        camera.moveBackward(offset);
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        cameraPos -= offset * glm::vec3(view[0][0], view[1][0], view[2][0]);
+        camera.moveLeft(offset);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        cameraPos += offset * glm::vec3(view[0][0], view[1][0], view[2][0]);
+        camera.moveRight(offset);
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-        cameraPos.y += offset;
+        camera.moveUp(offset);
     if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
-        cameraPos.y -= offset;
+        camera.moveDown(offset);
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
         rotate = !rotate;
     if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
         cpuTransform = true;
     if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS)
         cpuTransform = false;
+    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
+        camera.makeOrthographic();
+    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
+        camera.makePerspective();
+    if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS)
+        camera.zoomIn();
+    if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS)
+        camera.zoomOut();
 
     // camera rotation
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-        view = glm::rotate(view, glm::radians(-1.0f), glm::vec3(view[0][0], view[1][0], view[2][0]));
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-        view = glm::rotate(view, glm::radians(1.0f), glm::vec3(view[0][0], view[1][0], view[2][0]));
-    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-        view = glm::rotate(view, glm::radians(-1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        camera.lookDown(1.0f);
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+        camera.lookUp(1.0f);
     if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-        view = glm::rotate(view, glm::radians(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        camera.lookRight(1.0f);
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+        camera.lookLeft(1.0f);
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

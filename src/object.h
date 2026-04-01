@@ -1,4 +1,5 @@
 #include "meshHandler.h"
+#include "camera.h"
 #include <string>
 #include <vector>
 #include <GL/glew.h>
@@ -82,7 +83,7 @@ class Object {
         return model;
     }
 
-    void draw(unsigned int shaderProgram, bool cpuTransform, glm::vec3& cameraPos, glm::mat4& view, glm::mat4& projection) {
+    void draw(unsigned int shaderProgram, bool cpuTransform, Camera& camera) {
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
 
@@ -92,7 +93,7 @@ class Object {
 
             for (size_t i = 0; i < transformed.size(); i += 6) {
                 glm::vec4 v(transformed[i], transformed[i + 1], transformed[i + 2], 1.0f);
-                glm::vec4 clip = projection * glm::translate(view, -cameraPos) * model * v;
+                glm::vec4 clip = camera.clip(model, v);
                 float invW = (clip.w != 0.0f) ? (1.0f / clip.w) : 1.0f;
                 transformed[i]     = clip.x * invW;
                 transformed[i + 1] = clip.y * invW;
@@ -112,8 +113,8 @@ class Object {
             glBufferData(GL_ARRAY_BUFFER, original.size() * sizeof(float), original.data(), GL_STATIC_DRAW);
 
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(glm::translate(view, -cameraPos)));
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));
         }
 
         if (useEBO) {

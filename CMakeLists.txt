@@ -8,6 +8,7 @@ add_executable(${PROJECT_NAME}
     ./src/main.cpp
     ./src/meshHandler.h
     ./src/object.h
+    ./src/camera.h
 )
 
 find_package(OpenGL REQUIRED)
