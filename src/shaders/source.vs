@@ -1,25 +1,65 @@
-// const char *vertexShaderSource = "#version 330 core\n"
-    // "layout (location = 0) in vec3 aPos;\n"
-    // "void main()\n"
-    // "{\n"
-    // "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-    // "}\0";
-
 #version 330 core
 
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aColor;
+layout (location = 2) in vec3 aNormal;
 
 out vec3 ourColor;
 
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
-uniform bool zBufferView;
+uniform int mode; // 0=default, 1=normal, 2=z-buffer view
+
+uniform vec3 lightPosWorld;
+uniform vec3 lightColor;
+uniform vec3 ambientColor;
+uniform float ambientStrength;
+uniform float diffuseStrength;
+uniform float specularStrength;
+uniform float shininess;
+
+const int DEFAULT_MODE = 0;
+const int NORMAL_MODE  = 1;
+const int ZBUF_MODE    = 2;
 
 void main()
 {
-    vec4 viewPos = view * model * vec4(aPos, 1.0);
-    gl_Position = projection * viewPos;
-    ourColor = zBufferView ? vec3(viewPos.z / 100.0) : aColor;
+    // object -> eye space
+    mat4 modelView = view * model;
+    vec3 eyePos  = vec3(modelView * vec4(aPos, 1.0));
+
+    mat3 normalMatrix = transpose(inverse(mat3(modelView)));
+    vec3 N = normalize(normalMatrix * aNormal);
+
+    vec3 lightPosEye = vec3(view * vec4(lightPosWorld, 1.0));
+    vec3 L = normalize(lightPosEye - eyePos);
+    vec3 V = normalize(-eyePos);
+    vec3 H = normalize(L + V);
+
+    float lambert = max(dot(N, L), 0.0);
+    float spec = 0.0;
+    if (lambert > 0.0) {
+        spec = pow(max(dot(N, H), 0.0), shininess);
+    }
+
+    vec3 ambient  = ambientStrength  * ambientColor;
+    vec3 diffuse  = diffuseStrength  * lambert * lightColor;
+    vec3 specular = specularStrength * spec    * lightColor;
+
+    vec3 finalColor = (ambient + diffuse) * aColor + specular;
+
+    // eye -> clip
+    gl_Position = projection * vec4(eyePos, 1.0);
+
+    if (mode == NORMAL_MODE) {
+        ourColor = N * 0.5 + 0.5;
+    } else if (mode == ZBUF_MODE) {
+        float d = clamp((eyePos.z) / 100.0, 0.0, 1.0);
+        ourColor = vec3(d);
+    } else {
+        ourColor = finalColor; // output interpolated by rasterizer
+    }
 }
+
+// Reference: https://github.com/ruange/Gouraud-Shading-and-Phong-Shading

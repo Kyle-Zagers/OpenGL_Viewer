@@ -1,134 +1,220 @@
-#include "meshHandler.h"
+#pragma once
+
+#include "tiny_obj_loader.h"
 #include "camera.h"
+
 #include <string>
 #include <vector>
+#include <iostream>
+#include <cstdlib>
+
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#pragma once
-
 class Object {
-    MeshHandler meshHandler;
-    unsigned int VAO, VBO, EBO;
-    bool useEBO;
-    glm::mat4 model = glm::mat4(1.0f);
+private:
+    unsigned int vertexArrayObject = 0;
+    unsigned int vertexBufferObject = 0;
+    unsigned int elementBufferObject = 0;
 
-    public:
-    Object(std::string fileName, glm::vec3 position, float r = 1.0f, float g = 1.0f, float b = 1.0f, bool _useEBO = false, bool randColor = false) {
-        useEBO = _useEBO;
-        meshHandler.loadObj(fileName, r, g, b, randColor);
-        model = glm::translate(model, position);
+    glm::mat4 modelMatrix = glm::mat4(1.0f);
 
-        if (useEBO) {
+    float ambientStrength = 0.5f;
+    float diffuseStrength = 0.5f;
+    float specularStrength = 0.5f;
+    float shininess = 32.0f;
 
-            const std::vector<float>& vertices = meshHandler.getVertices();
-            const std::vector<unsigned int>& indices = meshHandler.getIndices();
+    // position(3), color(3), normal(3)
+    std::vector<float> vertexData;
+    std::vector<unsigned int> indexData;
 
-            glGenVertexArrays(1, &VAO);
-            glGenBuffers(1, &VBO);
-            glGenBuffers(1, &EBO);
+    bool loadObj(const std::string& filePath, float red, float green, float blue, bool randomColor) {
+        tinyobj::ObjReader reader;
+        tinyobj::ObjReaderConfig config;
+        config.triangulate = true;
 
-            glBindVertexArray(VAO);
+        if (!reader.ParseFromFile(filePath, config)) {
+            std::cerr << "Failed to load obj: " << filePath << "\n";
+            if (!reader.Error().empty()) std::cerr << reader.Error() << "\n";
+            return false;
+        }
 
-            glBindBuffer(GL_ARRAY_BUFFER, VBO);
-            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+        const tinyobj::attrib_t& attrib = reader.GetAttrib();
+        const std::vector<tinyobj::shape_t>& shapes = reader.GetShapes();
 
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+        if (attrib.vertices.empty() || shapes.empty()) {
+            return false;
+        }
 
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
-            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-            glEnableVertexAttribArray(1);
+        for (const tinyobj::shape_t& shape : shapes) {
+            size_t shapeIndexOffset = 0;
 
-            glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind VBO
-            glBindVertexArray(0); // Unbind VAO
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0); // Unbind EBO
+            for (size_t faceIndex = 0; faceIndex < shape.mesh.num_face_vertices.size(); faceIndex++) {
+                int faceVertexCount = shape.mesh.num_face_vertices[faceIndex];
 
+                // only accept triangles.
+                if (faceVertexCount != 3) {
+                    shapeIndexOffset += faceVertexCount;
+                    continue;
+                }
+
+                for (int corner = 0; corner < 3; ++corner) {
+                    tinyobj::index_t meshIndex = shape.mesh.indices[shapeIndexOffset + corner];
+
+                    if (meshIndex.vertex_index < 0) {
+                        continue;
+                    }
+
+                    int positionIndex = meshIndex.vertex_index;
+                    int normalIndex = meshIndex.normal_index;
+
+                    glm::vec3 position(
+                        attrib.vertices[3 * positionIndex + 0],
+                        attrib.vertices[3 * positionIndex + 1],
+                        attrib.vertices[3 * positionIndex + 2]
+                    );
+
+                    glm::vec3 color(red, green, blue);
+                    if (randomColor) {
+                        color = glm::vec3(
+                            static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX),
+                            static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX),
+                            static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX)
+                        );
+                    }
+
+                    glm::vec3 normal(0.0f, 0.0f, 0.0f);
+                    if (normalIndex >= 0 && attrib.normals.size() >= (3 * normalIndex + 3)) {
+                        normal = glm::vec3(
+                            attrib.normals[3 * normalIndex + 0],
+                            attrib.normals[3 * normalIndex + 1],
+                            attrib.normals[3 * normalIndex + 2]
+                        );
+                    }
+                    else { // create normal from triangle vertices if normal is missing
+                        int vertexIndex1 = shape.mesh.indices[shapeIndexOffset + 0].vertex_index;
+                        int vertexIndex2 = shape.mesh.indices[shapeIndexOffset + 1].vertex_index;
+                        int vertexIndex3 = shape.mesh.indices[shapeIndexOffset + 2].vertex_index;
+
+                        glm::vec3 v1(
+                            attrib.vertices[3 * vertexIndex1 + 0],
+                            attrib.vertices[3 * vertexIndex1 + 1],
+                            attrib.vertices[3 * vertexIndex1 + 2]
+                        );
+                        glm::vec3 v2(
+                            attrib.vertices[3 * vertexIndex2 + 0],
+                            attrib.vertices[3 * vertexIndex2 + 1],
+                            attrib.vertices[3 * vertexIndex2 + 2]
+                        );
+                        glm::vec3 v3(
+                            attrib.vertices[3 * vertexIndex3 + 0],
+                            attrib.vertices[3 * vertexIndex3 + 1],
+                            attrib.vertices[3 * vertexIndex3 + 2]
+                        );
+
+                        normal = glm::normalize(glm::cross(v2 - v1, v3 - v1));
+
+                    }
+
+                    vertexData.push_back(position.x);
+                    vertexData.push_back(position.y);
+                    vertexData.push_back(position.z);
+
+                    vertexData.push_back(color.x);
+                    vertexData.push_back(color.y);
+                    vertexData.push_back(color.z);
+
+                    vertexData.push_back(normal.x);
+                    vertexData.push_back(normal.y);
+                    vertexData.push_back(normal.z);
+
+                    unsigned int newIndex = static_cast<unsigned int>((vertexData.size() / 9) - 1);
+                    indexData.push_back(newIndex);
+                }
+
+                shapeIndexOffset += 3;
+            }
+        }
+
+        return !vertexData.empty() && !indexData.empty();
+    }
+
+    void uploadToGpu() {
+        glGenVertexArrays(1, &vertexArrayObject);
+        glGenBuffers(1, &vertexBufferObject);
+        glGenBuffers(1, &elementBufferObject);
+
+        glBindVertexArray(vertexArrayObject);
+
+        glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObject);
+        glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(float), vertexData.data(), GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBufferObject);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexData.size() * sizeof(unsigned int), indexData.data(), GL_STATIC_DRAW);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (void*)(6 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+
+        glBindVertexArray(0);
+    }
+
+public:
+    Object(std::string filePath, glm::vec3 position, float red = 1.0f, float green = 1.0f, float blue = 1.0f, bool randomColor = false) {
+        modelMatrix = glm::translate(modelMatrix, position);
+        if (loadObj(filePath, red, green, blue, randomColor)) {
+            uploadToGpu();
         }
         else {
-
-            const std::vector<float>& vertices = meshHandler.getTriangles();
-
-            glGenVertexArrays(1, &VAO);
-            glGenBuffers(1, &VBO);
-
-            glBindVertexArray(VAO);
-            glBindBuffer(GL_ARRAY_BUFFER, VBO);
-            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
-
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
-            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-            glEnableVertexAttribArray(1);
-
-            glBindBuffer(GL_ARRAY_BUFFER, 0); // Unbind VBO
-            glBindVertexArray(0); // Unbind VAO
-
+            std::cerr << "Failed to load object from file: " << filePath << "\n";
         }
-
     }
 
     void changePosition(glm::vec3 newPosition) {
-        model = glm::translate(model, newPosition);
+        modelMatrix = glm::translate(modelMatrix, newPosition);
     }
 
-    void applyTransformation(glm::mat4 transformationMatrix) {
-        model = transformationMatrix * model;
+    void applyTransformation(glm::mat4 transform) {
+        modelMatrix = transform * modelMatrix;
     }
 
     glm::mat4 getModelMatrix() const {
-        return model;
+        return modelMatrix;
     }
 
-    void draw(unsigned int shaderProgram, bool cpuTransform, Camera& camera, bool zBufferView = false) {
-        glUseProgram(shaderProgram);
-        glBindVertexArray(VAO);
+    void draw(unsigned int shaderProgram, Camera& camera) {
+        glBindVertexArray(vertexArrayObject);
 
-        if (cpuTransform) {
-            std::vector<float> transformed = useEBO ? meshHandler.getVertices() : meshHandler.getTriangles();
-            // glm::mat4 mvp = projection * glm::translate(view, -cameraPos) * model;
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));
+        
+        glUniform1f(glGetUniformLocation(shaderProgram, "ambientStrength"), ambientStrength);
+        glUniform1f(glGetUniformLocation(shaderProgram, "diffuseStrength"), diffuseStrength);
+        glUniform1f(glGetUniformLocation(shaderProgram, "specularStrength"), specularStrength);
+        glUniform1f(glGetUniformLocation(shaderProgram, "shininess"), shininess);
 
-            for (size_t i = 0; i < transformed.size(); i += 6) {
-                glm::vec4 v(transformed[i], transformed[i + 1], transformed[i + 2], 1.0f);
-                glm::vec4 clip = camera.clip(model, v);
-                float invW = (clip.w != 0.0f) ? (1.0f / clip.w) : 1.0f;
-                transformed[i]     = clip.x * invW;
-                transformed[i + 1] = clip.y * invW;
-                transformed[i + 2] = clip.z * invW;
-            }
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indexData.size()), GL_UNSIGNED_INT, 0);
 
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
-            glUniform1i(glGetUniformLocation(shaderProgram, "zBufferView"), zBufferView ? 1 : 0);
-
-            glBindBuffer(GL_ARRAY_BUFFER, VBO);
-            glBufferData(GL_ARRAY_BUFFER, transformed.size() * sizeof(float), transformed.data(), GL_DYNAMIC_DRAW);
-        } else {
-            // restore original mesh buffer so GPU path gets object-space vertices
-            const std::vector<float>& original = useEBO ? meshHandler.getVertices() : meshHandler.getTriangles();
-            glBindBuffer(GL_ARRAY_BUFFER, VBO);
-            glBufferData(GL_ARRAY_BUFFER, original.size() * sizeof(float), original.data(), GL_STATIC_DRAW);
-
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));
-            glUniform1i(glGetUniformLocation(shaderProgram, "zBufferView"), zBufferView ? 1 : 0);
-        }
-
-        if (useEBO) {
-            glDrawElements(GL_TRIANGLES, meshHandler.getIndices().size(), GL_UNSIGNED_INT, 0);
-        } else {
-            glDrawArrays(GL_TRIANGLES, 0, meshHandler.getTriangles().size() / 6);
-        }
         glBindVertexArray(0);
     }
 
     ~Object() {
-        glDeleteVertexArrays(1, &VAO);
-        glDeleteBuffers(1, &VBO);
+        if (vertexArrayObject) {
+            glDeleteVertexArrays(1, &vertexArrayObject);
+        }
+        if (vertexBufferObject) {
+            glDeleteBuffers(1, &vertexBufferObject);
+        }
+        if (elementBufferObject) {
+            glDeleteBuffers(1, &elementBufferObject);
+        }
     }
 };

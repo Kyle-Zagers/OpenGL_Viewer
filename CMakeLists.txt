@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(${PROJECT_NAME}
     ./src/main.cpp
-    ./src/meshHandler.h
+    ./src/tiny_obj_loader.h
     ./src/object.h
     ./src/camera.h
 )

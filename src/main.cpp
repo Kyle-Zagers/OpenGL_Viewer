@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <fstream>
+#define TINYOBJLOADER_IMPLEMENTATION
 #include "object.h"
 #include "camera.h"
 
@@ -14,7 +15,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, bool& zBufferView, Camera& camera);
+void processInput(GLFWwindow *window, bool& rotate, int& mode, Camera& camera);
 
 // settings
 const unsigned int SCR_WIDTH = 1920;
@@ -34,6 +35,12 @@ bool getShadersSource(std::string& vertexShaderCode, std::string& fragmentShader
     fragmentShaderCode = std::string((std::istreambuf_iterator<char>(fragmentShaderFile)), std::istreambuf_iterator<char>());
     return true;
 }
+
+enum viewMode {
+    DEFAULT,
+    NORMAL,
+    Z_BUFFER
+};
 
 int main()
 {
@@ -123,12 +130,12 @@ int main()
 
     glm::vec3 obj1Pos = glm::vec3(60.0f, 0.0f, 0.0f);
     glm::vec3 obj2Pos = glm::vec3(0.0f, 2.0f, 0.0f);
-    glm::vec3 obj3Pos = glm::vec3(30.0f, 0.0f, 0.0f);
+    glm::vec3 obj3Pos = glm::vec3(30.0f, 20.0f, 0.0f);
     
     std::vector<Object*> objects;
-    objects.emplace_back(new Object("../src/models/teapot.obj", obj1Pos, 1.0f, 1.0f, 1.0f, true, true));
-    objects.emplace_back(new Object("../src/models/ncc1701b.obj", obj2Pos, 0.0f, 1.0f, 0.0f, true));
-    objects.emplace_back(new Object("../src/models/cube.obj", obj3Pos, 1.0f, 0.0f, 0.0f, true));
+    objects.emplace_back(new Object("../src/models/castle.obj", obj1Pos, 1.0f, 0.0f, 1.0f));
+    objects.emplace_back(new Object("../src/models/soccerball.obj", obj2Pos, 0.0f, 1.0f, 0.0f));
+    objects.emplace_back(new Object("../src/models/f-16.obj", obj3Pos, 1.0f, 0.0f, 0.0f));
     auto axis = obj2Pos - obj1Pos;
 
     glm::mat4 translateToOrigin = glm::translate(glm::mat4(1.0f), -obj1Pos);
@@ -171,8 +178,11 @@ int main()
     Camera camera = Camera();
 
     bool rotate = false;
-    bool cpuTransform = false;
-    bool zBufferView = false;
+    int mode = DEFAULT;
+
+    glm::vec3 lightPosWorld = glm::vec3(10.0f, 100.0f, 10.0f);
+    glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+    glm::vec3 ambientColor = glm::vec3(0.2f, 0.2f, 0.2f);
 
     // render loop
     // -----------
@@ -180,7 +190,14 @@ int main()
     {
         // input
         // -----
-        processInput(window, rotate, cpuTransform, zBufferView, camera);
+        processInput(window, rotate, mode, camera);
+
+        glUseProgram(shaderProgram);
+        glUniform1i(glGetUniformLocation(shaderProgram, "mode"), mode);
+        glUniform3fv(glGetUniformLocation(shaderProgram, "lightPosWorld"), 1, &lightPosWorld[0]);
+        glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, &lightColor[0]);
+        glUniform3fv(glGetUniformLocation(shaderProgram, "ambientColor"), 1, &ambientColor[0]);
+
 
         // render
         // ------
@@ -193,7 +210,7 @@ int main()
                 obj->applyTransformation(rotationMatrix);
             }
 
-            obj->draw(shaderProgram, cpuTransform, camera, zBufferView);
+            obj->draw(shaderProgram, camera);
         }
  
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -218,7 +235,7 @@ int main()
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
-void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, bool& zBufferView, Camera& camera)
+void processInput(GLFWwindow *window, bool& rotate, int& mode, Camera& camera)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
@@ -230,7 +247,11 @@ void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, bool& zB
         glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
 
     if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
-        zBufferView = !zBufferView;
+        mode = Z_BUFFER;
+    if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
+        mode = NORMAL;
+    if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
+        mode = DEFAULT;
     
     // move camera
     float offset = 0.1f;
@@ -248,10 +269,6 @@ void processInput(GLFWwindow *window, bool& rotate, bool& cpuTransform, bool& zB
         camera.moveDown(offset);
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
         rotate = !rotate;
-    if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
-        cpuTransform = true;
-    if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS)
-        cpuTransform = false;
     if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
         camera.makeOrthographic();
     if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
