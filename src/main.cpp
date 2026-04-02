@@ -37,9 +37,11 @@ bool getShadersSource(std::string& vertexShaderCode, std::string& fragmentShader
 }
 
 enum viewMode {
-    DEFAULT,
+    PHONG,
     NORMAL,
-    Z_BUFFER
+    Z_BUFFER,
+    FLAT,
+    GOURAUD
 };
 
 int main()
@@ -169,16 +171,10 @@ int main()
 
     glm::mat4 rotationMatrix = glm::inverse(translateToOrigin) * glm::inverse(axisAlign) * rotationAroundX * axisAlign * translateToOrigin;
 
-    // print rotation matrix
-    std::cout << "Rotation Matrix:\n" << rotationMatrix[0][0] << " " << rotationMatrix[0][1] << " " << rotationMatrix[0][2] << " " << rotationMatrix[0][3] << "\n"
-                << rotationMatrix[1][0] << " " << rotationMatrix[1][1] << " " << rotationMatrix[1][2] << " " << rotationMatrix[1][3] << "\n"
-                << rotationMatrix[2][0] << " " << rotationMatrix[2][1] << " " << rotationMatrix[2][2] << " " << rotationMatrix[2][3] << "\n"
-                << rotationMatrix[3][0] << " " << rotationMatrix[3][1] << " " << rotationMatrix[3][2] << " " << rotationMatrix[3][3] << std::endl;
-
     Camera camera = Camera();
 
     bool rotate = false;
-    int mode = DEFAULT;
+    int mode = GOURAUD;
 
     glm::vec3 lightPosWorld = glm::vec3(10.0f, 100.0f, 10.0f);
     glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -251,8 +247,12 @@ void processInput(GLFWwindow *window, bool& rotate, int& mode, Camera& camera)
     if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
         mode = NORMAL;
     if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
-        mode = DEFAULT;
-    
+        mode = PHONG;
+    if (glfwGetKey(window, GLFW_KEY_V) == GLFW_PRESS)
+        mode = FLAT;
+    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS)
+        mode = GOURAUD;
+
     // move camera
     float offset = 0.1f;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
