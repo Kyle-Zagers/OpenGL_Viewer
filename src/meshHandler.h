@@ -10,19 +10,10 @@
 
 #pragma once
 
-struct face {
-    unsigned int vertexIndices[3];
-    unsigned int textureIndices[3];
-    unsigned int normalIndices[3];
-
-    float vertices[9];
-    float textures[6];
-    float normals[9];
-};
-
 struct MaterialInfo {
     Texture* texture = nullptr;
-    std::vector<face> faces;
+    float r = -1.0f, g = -1.0f, b = -1.0f;
+    std::vector<std::pair<unsigned int, unsigned int>> groups; // offset, count
 };
 
 class MeshHandler {
@@ -33,7 +24,7 @@ private:
 
     // position(3), texture(2), normal(3)
     std::vector<float> vertexData;
-    std::vector<unsigned int> indices;
+    std::vector<unsigned int> indexData;
 
     std::unordered_map<std::string, MaterialInfo> materials;
 
@@ -54,11 +45,16 @@ private:
 
                 std::streampos currentPos = mtlFile.tellg();
 
-                while (std::getline(mtlFile, line) && line.substr(0, 7) != "newmtl ") {
+                while (std::getline(mtlFile, line) && line.find("newmtl") == std::string::npos) {
 
-                    if (line.substr(0, 8) == "\tmap_Kd ") {
+                    if (line.find("map_Kd") != std::string::npos) {
 
-                        std::string textureFile = "../src/models/" + line.substr(8);
+                        std::stringstream ss(line);
+                        std::string mapKd;
+                        std::string textureFileName;
+                        ss >> mapKd >> textureFileName;
+
+                        std::string textureFile = "../src/models/" + textureFileName;
                         Texture* tex = new Texture(GL_TEXTURE_2D, textureFile);
 
                         if (tex->load()) {
@@ -68,6 +64,10 @@ private:
                             delete tex;
                         }
 
+                    } else if (line.find("Kd") != std::string::npos) {
+                        std::stringstream ss(line);
+                        std::string kd;
+                        ss >> kd >> newMaterial.r >> newMaterial.g >> newMaterial.b;
                     }
 
                     currentPos = mtlFile.tellg();
@@ -107,22 +107,28 @@ private:
             else if (lineType == "usemtl") {
                 std::string materialName;
                 ss >> materialName;
+
+                // materials[materialName].indexDataOffset = indexData.size();
+                materials[materialName].groups.push_back({ indexData.size(), 0 });
+
+                std::streampos currentPos = objFile.tellg();
                 
                 while (std::getline(objFile, line)) {
                     ss = std::stringstream(line);
                     ss >> lineType;
 
                     if (lineType != "f" && lineType != "s" && lineType != "g") {
+                        objFile.seekg(currentPos);
                         break;
                     }
 
                     std::vector<unsigned int> vertexIndices;
-                    std::vector<unsigned int> textureIndices;
-                    std::vector<unsigned int> normalIndices;
 
                     if (lineType == "f") {
                         std::string vertex;
-                        
+
+                        unsigned int triangleVertexCount = vertexData.size() / 8; // each vertex has 8 floats (position(3), texture(2), normal(3))
+
                         while (ss >> vertex) {
                             size_t slash = vertex.find('/');
                             std::string vertexIndexStr = (slash == std::string::npos) ? vertex : vertex.substr(0, slash);
@@ -145,8 +151,8 @@ private:
                             vertexData.push_back(vertices[vertexIndex * 3 + 2]);
 
                             if (slash == std::string::npos) {
-                                vertexData.push_back(0.0f);
-                                vertexData.push_back(0.0f);
+                                vertexData.push_back(-1.0f);
+                                vertexData.push_back(-1.0f);
 
                                 vertexData.push_back(0.0f);
                                 vertexData.push_back(0.0f);
@@ -168,13 +174,12 @@ private:
                                     else {
                                         textureIndex -= 1;
                                     }
-                                    textureIndices.push_back(textureIndex);
 
                                     vertexData.push_back(vertexTexture[textureIndex * 2]);
                                     vertexData.push_back(vertexTexture[textureIndex * 2 + 1]);
                                 } else {
-                                    vertexData.push_back(0.0f);
-                                    vertexData.push_back(0.0f);
+                                    vertexData.push_back(-1.0f);
+                                    vertexData.push_back(-1.0f);
                                 }
 
                                 vertexData.push_back(0.0f);
@@ -195,10 +200,9 @@ private:
                                     else {
                                         normalIndex -= 1;
                                     }
-                                    normalIndices.push_back(normalIndex);
 
-                                    vertexData.push_back(0.0f);
-                                    vertexData.push_back(0.0f);
+                                    vertexData.push_back(-1.0f);
+                                    vertexData.push_back(-1.0f);
 
                                     vertexData.push_back(vertexNormal[normalIndex * 3]);
                                     vertexData.push_back(vertexNormal[normalIndex * 3 + 1]);
@@ -218,13 +222,12 @@ private:
                                 else {
                                     textureIndex -= 1;
                                 }
-                                textureIndices.push_back(textureIndex);
                                 vertexData.push_back(vertexTexture[textureIndex * 2]);
                                 vertexData.push_back(vertexTexture[textureIndex * 2 + 1]);
                             }
                             else {
-                                vertexData.push_back(0.0f);
-                                vertexData.push_back(0.0f);
+                                vertexData.push_back(-1.0f);
+                                vertexData.push_back(-1.0f);
                             }
                             std::string normalIndexStr = vertex.substr(slash2 + 1);
                             if (!normalIndexStr.empty()) {
@@ -236,7 +239,6 @@ private:
                                 else {
                                     normalIndex -= 1;
                                 }
-                                normalIndices.push_back(normalIndex);
                                 vertexData.push_back(vertexNormal[normalIndex * 3]);
                                 vertexData.push_back(vertexNormal[normalIndex * 3 + 1]);
                                 vertexData.push_back(vertexNormal[normalIndex * 3 + 2]);
@@ -251,21 +253,12 @@ private:
 
                         if (vertexIndices.size() >= 3) {
                             for (size_t i = 1; i < vertexIndices.size() - 1; i++) {
-                                materials[materialName].faces.push_back({
-                                    {vertexIndices[0], vertexIndices[i], vertexIndices[i + 1]},
-                                    {textureIndices.size() > 0 ? textureIndices[0] : 0, textureIndices.size() > i ? textureIndices[i] : 0, textureIndices.size() > i + 1 ? textureIndices[i + 1] : 0},
-                                    {normalIndices.size() > 0 ? normalIndices[0] : 0, normalIndices.size() > i ? normalIndices[i] : 0, normalIndices.size() > i + 1 ? normalIndices[i + 1] : 0},
-                                    {vertices[vertexIndices[0] * 3], vertices[vertexIndices[0] * 3 + 1], vertices[vertexIndices[0] * 3 + 2],
-                                     vertices[vertexIndices[i] * 3], vertices[vertexIndices[i] * 3 + 1], vertices[vertexIndices[i] * 3 + 2],
-                                     vertices[vertexIndices[i + 1] * 3], vertices[vertexIndices[i + 1] * 3 + 1], vertices[vertexIndices[i + 1] * 3 + 2]},
-                                    {textureIndices.size() > 0 ? vertexTexture[textureIndices[0] * 2] : 0.0f, textureIndices.size() > 0 ? vertexTexture[textureIndices[0] * 2 + 1] : 0.0f,
-                                     textureIndices.size() > i ? vertexTexture[textureIndices[i] * 2] : 0.0f, textureIndices.size() > i ? vertexTexture[textureIndices[i] * 2 + 1] : 0.0f,
-                                     textureIndices.size() > i + 1 ? vertexTexture[textureIndices[i + 1] * 2] : 0.0f, textureIndices.size() > i + 1 ? vertexTexture[textureIndices[i + 1] * 2 + 1] : 0.0f},
-                                    {normalIndices.size() > 0 ? vertexNormal[normalIndices[0] * 3] : 0.0f, normalIndices.size() > 0 ? vertexNormal[normalIndices[0] * 3 + 1] : 0.0f, normalIndices.size() > 0 ? vertexNormal[normalIndices[0] * 3 + 2] : 0.0f,
-                                     normalIndices.size() > i ? vertexNormal[normalIndices[i] * 3] : 0.0f, normalIndices.size() > i ? vertexNormal[normalIndices[i] * 3 + 1] : 0.0f, normalIndices.size() > i ? vertexNormal[normalIndices[i] * 3 + 2] : 0.0f,
-                                     normalIndices.size() > i + 1 ? vertexNormal[normalIndices[i + 1] * 3] : 0.0f, normalIndices.size() > i + 1 ? vertexNormal[normalIndices[i + 1] * 3 + 1] : 0.0f, normalIndices.size() > i + 1 ? vertexNormal[normalIndices[i + 1] * 3 + 2] : 0.0f}
-                                });
+                                indexData.push_back(triangleVertexCount);
+                                indexData.push_back(triangleVertexCount + i);
+                                indexData.push_back(triangleVertexCount + i + 1);
                             }
+                            // materials[materialName].indexDataCount += (vertexIndices.size() - 2) * 3;
+                            materials[materialName].groups.back().second += (vertexIndices.size() - 2) * 3;
                         }
 
                     }
@@ -312,16 +305,12 @@ public:
         return true;
     }
 
-    const std::vector<float>& getVertices() {
-        return vertices;
+    const std::vector<float>& getVertexData() const {
+        return vertexData;
     }
 
-    const std::vector<float>& getVertexTexture() {
-        return vertexTexture;
-    }
-
-    const std::vector<float>& getVertexNormal() {
-        return vertexNormal;
+    const std::vector<unsigned int>& getIndexData() const {
+        return indexData;
     }
 
     const std::unordered_map<std::string, MaterialInfo>& getMaterials() {

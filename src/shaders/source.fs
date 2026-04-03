@@ -9,6 +9,8 @@ uniform float diffuseStrength;
 uniform float specularStrength;
 uniform float shininess;
 
+uniform vec3 color;
+
 in vec2 UVcoord;
 in vec3 ourColor;
 in vec3 ourSpecular;
@@ -28,7 +30,7 @@ const int GOURAUD_MODE = 4;
 
 void main()
 {
-    vec3 texColor = texture(uTex, UVcoord).rgb;
+    vec3 texColor = UVcoord != vec2(-1.0) ? texture(uTex, UVcoord).rgb : color;
     vec3 finalColor = texColor;
 
     if (mode == PHONG_MODE) {

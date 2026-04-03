@@ -9,7 +9,6 @@
 #include <iostream>
 #include <cstdlib>
 #include <istream>
-#include <unordered_map>
 
 #include <GL/glew.h>
 #include <glm/glm.hpp>
@@ -29,63 +28,26 @@ private:
     float specularStrength = 0.5f;
     float shininess = 32.0f;
 
-    // position(3), color(3), normal(3)
+    // position(3), texture(2), normal(3)
     std::vector<float> vertexData;
     std::vector<unsigned int> indexData;
-
-    struct DrawBatch {
-        Texture* texture = nullptr;
-        unsigned int indexOffset = 0;
-        unsigned int indexCount = 0;
-    };
-
-    std::vector<DrawBatch> drawBatches;
 
     MeshHandler meshHandler = MeshHandler();
 
 
     bool loadObj(const std::string& fileName) {
-        vertexData.clear();
-        indexData.clear();
-        drawBatches.clear();
-
         if (!meshHandler.loadObject(fileName)) {
             return false;
         }
-
         const std::unordered_map<std::string, MaterialInfo>& materials = meshHandler.getMaterials();
 
-        for (const auto& materialObject : materials) {
-            const MaterialInfo& material = materialObject.second;
+        vertexData.clear();
+        vertexData = meshHandler.getVertexData();
 
-            DrawBatch batch;
-            batch.texture = material.texture;
-            batch.indexOffset = static_cast<unsigned int>(indexData.size());
+        indexData.clear();
+        indexData = meshHandler.getIndexData();
 
-            for (const face& f : material.faces) {
-                for (int corner = 0; corner < 3; ++corner) {
-                    vertexData.push_back(f.vertices[corner * 3 + 0]);
-                    vertexData.push_back(f.vertices[corner * 3 + 1]);
-                    vertexData.push_back(f.vertices[corner * 3 + 2]);
-
-                    vertexData.push_back(f.textures[corner * 2 + 0]);
-                    vertexData.push_back(f.textures[corner * 2 + 1]);
-
-                    vertexData.push_back(f.normals[corner * 3 + 0]);
-                    vertexData.push_back(f.normals[corner * 3 + 1]);
-                    vertexData.push_back(f.normals[corner * 3 + 2]);
-
-                    indexData.push_back(static_cast<unsigned int>((vertexData.size() / 8) - 1));
-                }
-            }
-
-            batch.indexCount = static_cast<unsigned int>(indexData.size()) - batch.indexOffset;
-            if (batch.indexCount > 0) {
-                drawBatches.push_back(batch);
-            }
-        }
-
-        return !vertexData.empty() && !indexData.empty();
+        return true;
     }
 
     void uploadToGpu() {
@@ -151,30 +113,32 @@ public:
 
         glUniform1i(glGetUniformLocation(shaderProgram, "uTex"), 0);
 
-        for (const DrawBatch& batch : drawBatches) {
-            if (batch.texture) {
-                batch.texture->bind(GL_TEXTURE0);
-            } else {
-                glBindTexture(GL_TEXTURE_2D, 0);
+
+        for (const auto& materialObject : meshHandler.getMaterials()) {
+            const MaterialInfo& material = materialObject.second;
+
+            if (material.texture) {
+                material.texture->bind(GL_TEXTURE0);
+            }
+            else {
+                glBindTexture(GL_TEXTURE_2D, 0); // unbind texture if material has no valid texture
+                if (material.r >= 0.0f && material.g >= 0.0f && material.b >= 0.0f) {
+                    glUniform3f(glGetUniformLocation(shaderProgram, "color"), material.r, material.g, material.b);
+                }
+                else {
+                    glUniform3f(glGetUniformLocation(shaderProgram, "color"), 1.0f, 1.0f, 1.0f);
+                }
             }
 
-            glDrawElements(
-                GL_TRIANGLES,
-                static_cast<GLsizei>(batch.indexCount),
-                GL_UNSIGNED_INT,
-                (void*)(batch.indexOffset * sizeof(unsigned int))
-            );
+            for (const auto& group : material.groups) {
+                glDrawElements(GL_TRIANGLES, group.second, GL_UNSIGNED_INT, (void*)(group.first * sizeof(unsigned int)));
+            }
         }
 
         glBindVertexArray(0);
     }
 
     ~Object() {
-        // for (auto& tex : textures) {
-        //     if (tex) {
-        //         delete tex;
-        //     }
-        // }
 
         if (vertexArrayObject) {
             glDeleteVertexArrays(1, &vertexArrayObject);
