@@ -108,7 +108,6 @@ private:
                 std::string materialName;
                 ss >> materialName;
 
-                // materials[materialName].indexDataOffset = indexData.size();
                 materials[materialName].groups.push_back({ indexData.size(), 0 });
 
                 std::streampos currentPos = objFile.tellg();
@@ -127,7 +126,7 @@ private:
                     if (lineType == "f") {
                         std::string vertex;
 
-                        unsigned int triangleVertexCount = vertexData.size() / 8; // each vertex has 8 floats (position(3), texture(2), normal(3))
+                        unsigned int triangleVertexCount = vertexData.size() / 8;
 
                         while (ss >> vertex) {
                             size_t slash = vertex.find('/');
@@ -257,7 +256,6 @@ private:
                                 indexData.push_back(triangleVertexCount + i);
                                 indexData.push_back(triangleVertexCount + i + 1);
                             }
-                            // materials[materialName].indexDataCount += (vertexIndices.size() - 2) * 3;
                             materials[materialName].groups.back().second += (vertexIndices.size() - 2) * 3;
                         }
 

@@ -8,13 +8,9 @@ This project was developed on Linux. **The CMake has not been tested on other pl
 ## Building and Testing
 Simply run the command 'make' in the repo's build directory (if you would like you can run 'cmake ..' to build the make file, but a make file should be included). The binary is named 'OpenGL_Viewer'.
 
-## External Libraries
-- tinyobjloader: Loads obj information into intuitive accessible c++ data structures.
-
 ## References:
 - https://opentk.net/learn/chapter1/3-element-buffer-objects.html
 - https://github.com/ruange/Gouraud-Shading-and-Phong-Shading
-- https://github.com/tinyobjloader/tinyobjloader
 - https://ogldev.org/www/tutorial16/tutorial16.html
 - https://learnopengl.com/Model-Loading/Model
 - Lecture Slides
