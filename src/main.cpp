@@ -6,8 +6,8 @@
 
 #include <iostream>
 #include <fstream>
-#define TINYOBJLOADER_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_FAILURE_USERMSG
 #include "object.h"
 #include "camera.h"
 
