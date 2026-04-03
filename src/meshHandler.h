@@ -38,10 +38,15 @@ private:
         std::string line;
         std::vector<Texture*> textures;
         while (std::getline(mtlFile, line)) {
-            if (line.substr(0, 7) == "newmtl ") {
+            if (line.find("newmtl") != std::string::npos) {
+
+                std::stringstream ss(line);
+                std::string junk;
+                ss >> junk;
 
                 MaterialInfo newMaterial;
-                std::string materialName = line.substr(7);
+                std::string materialName;
+                ss >> materialName;
 
                 std::streampos currentPos = mtlFile.tellg();
 
@@ -49,10 +54,9 @@ private:
 
                     if (line.find("map_Kd") != std::string::npos) {
 
-                        std::stringstream ss(line);
-                        std::string mapKd;
+                        ss = std::stringstream(line);
                         std::string textureFileName;
-                        ss >> mapKd >> textureFileName;
+                        ss >> junk >> textureFileName;
 
                         std::string textureFile = "../src/models/" + textureFileName;
                         Texture* tex = new Texture(GL_TEXTURE_2D, textureFile);
@@ -65,9 +69,8 @@ private:
                         }
 
                     } else if (line.find("Kd") != std::string::npos) {
-                        std::stringstream ss(line);
-                        std::string kd;
-                        ss >> kd >> newMaterial.r >> newMaterial.g >> newMaterial.b;
+                        ss = std::stringstream(line);
+                        ss >> junk >> newMaterial.r >> newMaterial.g >> newMaterial.b;
                     }
 
                     currentPos = mtlFile.tellg();
