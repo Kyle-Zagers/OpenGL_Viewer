@@ -4,6 +4,8 @@
 #include <string>
 #include <iostream>
 
+#pragma once
+
 class Texture {
     std::string filePath;
     GLenum textureTarget;
