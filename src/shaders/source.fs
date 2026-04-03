@@ -9,13 +9,16 @@ uniform float diffuseStrength;
 uniform float specularStrength;
 uniform float shininess;
 
+in vec2 UVcoord;
 in vec3 ourColor;
+in vec3 ourSpecular;
 in vec3 eyePos;
 in vec3 N;
 
 out vec4 FragColor;
 
 uniform int mode;
+uniform sampler2D uTex;
 
 const int PHONG_MODE   = 0;
 const int NORMAL_MODE  = 1;
@@ -25,10 +28,11 @@ const int GOURAUD_MODE = 4;
 
 void main()
 {
-    vec3 finalColor = ourColor;
+    vec3 texColor = texture(uTex, UVcoord).rgb;
+    vec3 finalColor = texColor;
 
     if (mode == PHONG_MODE) {
-        vec3 normal = normalize(N); // interpolated normals must be renormalized
+        vec3 normal = normalize(N); // must be normalized after interpolation
 
         vec3 lightPosEye = vec3(view * vec4(lightPosWorld, 1.0));
         vec3 L = normalize(lightPosEye - eyePos);
@@ -45,8 +49,22 @@ void main()
         vec3 diffuse  = diffuseStrength  * lambert * lightColor;
         vec3 specular = specularStrength * spec    * lightColor;
 
-        finalColor = (ambient + diffuse) * ourColor + specular; // no "vec3" here
+        finalColor = (ambient + diffuse) * texColor + specular;
+    }
+    else if (mode == GOURAUD_MODE) {
+        finalColor = ourColor * texColor + ourSpecular;
+    }
+    else if (mode == FLAT_MODE) {
+        finalColor = texColor;
+    }
+    else if (mode == NORMAL_MODE || mode == ZBUF_MODE) {
+        finalColor = ourColor;
+    }
+    else {
+        finalColor = texColor;
     }
 
     FragColor = vec4(finalColor, 1.0);
 }
+
+// Reference: https://github.com/ruange/Gouraud-Shading-and-Phong-Shading

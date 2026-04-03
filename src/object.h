@@ -1,5 +1,6 @@
 #pragma once
 
+#include "texture.h"
 #include "tiny_obj_loader.h"
 #include "camera.h"
 
@@ -30,23 +31,56 @@ private:
     std::vector<float> vertexData;
     std::vector<unsigned int> indexData;
 
-    bool loadObj(const std::string& filePath, float red, float green, float blue, bool randomColor) {
+    struct textureBatch {
+        int materialId = -1;
+        unsigned int indexOffset = 0;
+        unsigned int indexCount = 0;
+    };
+
+    std::vector<textureBatch> textureBatches;
+    std::vector<Texture*> textures;
+
+    bool loadObj(const std::string& fileName) {
         tinyobj::ObjReader reader;
         tinyobj::ObjReaderConfig config;
         config.triangulate = true;
 
-        if (!reader.ParseFromFile(filePath, config)) {
-            std::cerr << "Failed to load obj: " << filePath << "\n";
+        std::string objFile = fileName + ".obj";
+        std::string mtlFile = fileName + ".mtl";
+        config.mtl_search_path = fileName.substr(0, fileName.find_last_of("/\\") + 1); // set search path to the directory of the obj file
+
+        if (!reader.ParseFromFile(objFile, config)) {
+            std::cerr << "Failed to load obj: " << objFile << "\n";
             if (!reader.Error().empty()) std::cerr << reader.Error() << "\n";
             return false;
         }
 
         const tinyobj::attrib_t& attrib = reader.GetAttrib();
         const std::vector<tinyobj::shape_t>& shapes = reader.GetShapes();
+        const std::vector<tinyobj::material_t>& materials = reader.GetMaterials();
 
         if (attrib.vertices.empty() || shapes.empty()) {
             return false;
         }
+
+        bool hasAnyTexturedMaterial = false;
+        bool hasAnyTexcoords = false;
+
+        textures.assign(materials.size(), nullptr);
+        for (size_t i = 0; i < materials.size(); ++i) {
+            if (!materials[i].diffuse_texname.empty()) {
+            hasAnyTexturedMaterial = true;
+                std::string texturePath = config.mtl_search_path + materials[i].diffuse_texname;
+                textures[i] = new Texture(GL_TEXTURE_2D, texturePath);
+                if (!textures[i]->load()) {
+                    std::cerr << "Failed to load texture: " << texturePath << "\n";
+                    delete textures[i];
+                    textures[i] = nullptr;
+                }
+            }
+        }
+
+        std::map<int, std::vector<unsigned int>> materialToIndices;
 
         for (const tinyobj::shape_t& shape : shapes) {
             size_t shapeIndexOffset = 0;
@@ -60,6 +94,11 @@ private:
                     continue;
                 }
 
+                int materialId = -1;
+                if (faceIndex < shape.mesh.material_ids.size()) {
+                    materialId = shape.mesh.material_ids[faceIndex];
+                }
+
                 for (int corner = 0; corner < 3; ++corner) {
                     tinyobj::index_t meshIndex = shape.mesh.indices[shapeIndexOffset + corner];
 
@@ -68,6 +107,7 @@ private:
                     }
 
                     int positionIndex = meshIndex.vertex_index;
+                    int texcoordIndex = meshIndex.texcoord_index;
                     int normalIndex = meshIndex.normal_index;
 
                     glm::vec3 position(
@@ -76,12 +116,12 @@ private:
                         attrib.vertices[3 * positionIndex + 2]
                     );
 
-                    glm::vec3 color(red, green, blue);
-                    if (randomColor) {
-                        color = glm::vec3(
-                            static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX),
-                            static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX),
-                            static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX)
+                    glm::vec2 texcoord(0.0f, 0.0f);
+                    if (texcoordIndex >= 0 && attrib.texcoords.size() >= (2 * texcoordIndex + 2)) {
+                        hasAnyTexcoords = true;
+                        texcoord = glm::vec2(
+                            attrib.texcoords[2 * texcoordIndex + 0],
+                            attrib.texcoords[2 * texcoordIndex + 1]
                         );
                     }
 
@@ -122,20 +162,36 @@ private:
                     vertexData.push_back(position.y);
                     vertexData.push_back(position.z);
 
-                    vertexData.push_back(color.x);
-                    vertexData.push_back(color.y);
-                    vertexData.push_back(color.z);
+                    vertexData.push_back(texcoord.x);
+                    vertexData.push_back(texcoord.y);
 
                     vertexData.push_back(normal.x);
                     vertexData.push_back(normal.y);
                     vertexData.push_back(normal.z);
 
-                    unsigned int newIndex = static_cast<unsigned int>((vertexData.size() / 9) - 1);
-                    indexData.push_back(newIndex);
+                    unsigned int newIndex = static_cast<unsigned int>((vertexData.size() / 8) - 1);
+                    materialToIndices[materialId].push_back(newIndex);
                 }
 
                 shapeIndexOffset += 3;
             }
+        }
+
+        indexData.clear();
+        textureBatches.clear();
+
+        for (auto& batch : materialToIndices) {
+            textureBatch newBatch;
+            newBatch.materialId = batch.first;
+            newBatch.indexOffset = static_cast<unsigned int>(indexData.size());
+            newBatch.indexCount = static_cast<unsigned int>(batch.second.size());
+            indexData.insert(indexData.end(), batch.second.begin(), batch.second.end());
+            textureBatches.push_back(newBatch);
+        }
+
+        if (hasAnyTexturedMaterial && !hasAnyTexcoords) {
+            std::cerr << "Model '" << fileName << "' has texture maps in MTL but no usable vt coordinates. "
+                      << "Using generated planar UV fallback." << "\n";
         }
 
         return !vertexData.empty() && !indexData.empty();
@@ -154,22 +210,23 @@ private:
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBufferObject);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexData.size() * sizeof(unsigned int), indexData.data(), GL_STATIC_DRAW);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (void*)0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
 
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (void*)(3 * sizeof(float)));
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
         glEnableVertexAttribArray(1);
 
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (void*)(6 * sizeof(float)));
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
         glEnableVertexAttribArray(2);
 
         glBindVertexArray(0);
     }
 
 public:
-    Object(std::string filePath, glm::vec3 position, float red = 1.0f, float green = 1.0f, float blue = 1.0f, bool randomColor = false) {
+    Object(std::string filePath, glm::vec3 position, float uniformScale = 1.0f) {
         modelMatrix = glm::translate(modelMatrix, position);
-        if (loadObj(filePath, red, green, blue, randomColor)) {
+        modelMatrix = glm::scale(modelMatrix, glm::vec3(uniformScale));
+        if (loadObj(filePath)) {
             uploadToGpu();
         }
         else {
@@ -201,12 +258,29 @@ public:
         glUniform1f(glGetUniformLocation(shaderProgram, "specularStrength"), specularStrength);
         glUniform1f(glGetUniformLocation(shaderProgram, "shininess"), shininess);
 
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indexData.size()), GL_UNSIGNED_INT, 0);
+        glUniform1i(glGetUniformLocation(shaderProgram, "uTex"), 0);
+
+        for (const auto& batch : textureBatches) {
+            if (batch.materialId >= 0 && batch.materialId < textures.size() && textures[batch.materialId] != nullptr) {
+                textures[batch.materialId]->bind(GL_TEXTURE0);
+            }
+            else {
+                glBindTexture(GL_TEXTURE_2D, 0); // unbind texture if material has no valid texture
+            }
+
+            glDrawElements(GL_TRIANGLES, batch.indexCount, GL_UNSIGNED_INT, (void*)(batch.indexOffset * sizeof(unsigned int)));
+        }
 
         glBindVertexArray(0);
     }
 
     ~Object() {
+        for (auto& tex : textures) {
+            if (tex) {
+                delete tex;
+            }
+        }
+
         if (vertexArrayObject) {
             glDeleteVertexArrays(1, &vertexArrayObject);
         }
@@ -218,3 +292,5 @@ public:
         }
     }
 };
+
+// Reference: https://learnopengl.com/Model-Loading/Model

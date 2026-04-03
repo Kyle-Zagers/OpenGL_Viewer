@@ -1,6 +1,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
+#include <cmath>
 
 #pragma once
 
@@ -15,19 +16,8 @@ class Camera {
     float t = 1.0f;
     float b = -1.0f;
 
-    glm::mat4 orthographic = glm::transpose(glm::mat4(
-        2.0f/(r-l), 0.0f, 0.0f, -(r+l)/(r-l),
-        0.0f, 2.0f/(t-b), 0.0f, -(t+b)/(t-b),
-        0.0f, 0.0f, 2.0f/(n-f), -(n+f)/(n-f),
-        0.0f, 0.0f, 0.0f, 1.0f
-    ));
-
-    glm::mat4 perspective = glm::transpose(glm::mat4(
-        n, 0.0f, 0.0f, 0.0f,
-        0.0f, n, 0.0f, 0.0f,
-        0.0f, 0.0f, n + f, -f * n,
-        0.0f, 0.0f, 1.0f, 0.0f
-    ));
+    glm::mat4 orthographic = glm::mat4(1.0f);
+    glm::mat4 perspective = glm::mat4(1.0f);
 
     bool perspectiveMode = true;
 
@@ -35,16 +25,46 @@ class Camera {
     const float minZoomScale = 0.1f;
     const float maxZoomScale = 10.0f;
 
-    glm::mat4 projection = perspectiveMode ? (orthographic * perspective) : orthographic;
+    glm::mat4 projection = glm::mat4(1.0f);
 
     void updateProjection() {
+        orthographic = glm::transpose(glm::mat4(
+            2.0f/(r-l), 0.0f, 0.0f, -(r+l)/(r-l),
+            0.0f, 2.0f/(t-b), 0.0f, -(t+b)/(t-b),
+            0.0f, 0.0f, 2.0f/(n-f), -(n+f)/(n-f),
+            0.0f, 0.0f, 0.0f, 1.0f
+        ));
+
+        perspective = glm::transpose(glm::mat4(
+            n, 0.0f, 0.0f, 0.0f,
+            0.0f, n, 0.0f, 0.0f,
+            0.0f, 0.0f, n + f, -f * n,
+            0.0f, 0.0f, 1.0f, 0.0f
+        ));
+
         glm::mat4 baseProjection = perspectiveMode ? (orthographic * perspective) : orthographic;
         projection = glm::scale(baseProjection, glm::vec3(zoomScale, zoomScale, 1.0f));
     }
 
     public:
     Camera() {
+        setPerspectiveFromFov(60.0f, 16.0f / 9.0f, 0.1f, 5000.0f);
+    }
+    
+    void setFrustum(float left, float right, float bottom, float top, float near, float far) {
+        l = left;
+        r = right;
+        b = bottom;
+        t = top;
+        n = near;
+        f = far;
         updateProjection();
+    }
+
+    void setPerspectiveFromFov(float verticalFovDeg, float aspectRatio, float near, float far) {
+        float halfHeight = near * std::tan(glm::radians(verticalFovDeg) * 0.5f);
+        float halfWidth = halfHeight * aspectRatio;
+        setFrustum(-halfWidth, halfWidth, -halfHeight, halfHeight, near, far);
     }
 
     void makePerspective() {

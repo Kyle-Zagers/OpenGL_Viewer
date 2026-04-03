@@ -9,6 +9,7 @@ add_executable(${PROJECT_NAME}
     ./src/tiny_obj_loader.h
     ./src/object.h
     ./src/camera.h
+    ./src/stb_image.h
 )
 
 find_package(OpenGL REQUIRED)

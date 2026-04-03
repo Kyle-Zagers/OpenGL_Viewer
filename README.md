@@ -15,6 +15,8 @@ Simply run the command 'make' in the repo's build directory (if you would like y
 - https://opentk.net/learn/chapter1/3-element-buffer-objects.html
 - https://github.com/ruange/Gouraud-Shading-and-Phong-Shading
 - https://github.com/tinyobjloader/tinyobjloader
+- https://ogldev.org/www/tutorial16/tutorial16.html
+- https://learnopengl.com/Model-Loading/Model
 - Lecture Slides
 - Class Textbooks:
   1. "Foundations of 3D Computer Graphics", Steven Gortler

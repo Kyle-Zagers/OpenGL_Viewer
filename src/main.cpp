@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #define TINYOBJLOADER_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
 #include "object.h"
 #include "camera.h"
 
@@ -16,6 +17,8 @@
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow *window, bool& rotate, int& mode, Camera& camera);
+
+static Camera* camera = new Camera();
 
 // settings
 const unsigned int SCR_WIDTH = 1920;
@@ -135,9 +138,9 @@ int main()
     glm::vec3 obj3Pos = glm::vec3(30.0f, 20.0f, 0.0f);
     
     std::vector<Object*> objects;
-    objects.emplace_back(new Object("../src/models/castle.obj", obj1Pos, 1.0f, 0.0f, 1.0f));
-    objects.emplace_back(new Object("../src/models/soccerball.obj", obj2Pos, 0.0f, 1.0f, 0.0f));
-    objects.emplace_back(new Object("../src/models/f-16.obj", obj3Pos, 1.0f, 0.0f, 0.0f));
+    objects.emplace_back(new Object("../src/models/sponza", obj1Pos, 0.01f));
+    objects.emplace_back(new Object("../src/models/soccerball", obj2Pos));
+    objects.emplace_back(new Object("../src/models/f-16", obj3Pos));
     auto axis = obj2Pos - obj1Pos;
 
     glm::mat4 translateToOrigin = glm::translate(glm::mat4(1.0f), -obj1Pos);
@@ -171,10 +174,13 @@ int main()
 
     glm::mat4 rotationMatrix = glm::inverse(translateToOrigin) * glm::inverse(axisAlign) * rotationAroundX * axisAlign * translateToOrigin;
 
-    Camera camera = Camera();
+    int fbWidth = 0;
+    int fbHeight = 0;
+    glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+    framebuffer_size_callback(window, fbWidth, fbHeight);
 
     bool rotate = false;
-    int mode = GOURAUD;
+    int mode = PHONG;
 
     glm::vec3 lightPosWorld = glm::vec3(10.0f, 100.0f, 10.0f);
     glm::vec3 lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -186,7 +192,7 @@ int main()
     {
         // input
         // -----
-        processInput(window, rotate, mode, camera);
+        processInput(window, rotate, mode, *camera);
 
         glUseProgram(shaderProgram);
         glUniform1i(glGetUniformLocation(shaderProgram, "mode"), mode);
@@ -206,7 +212,7 @@ int main()
                 obj->applyTransformation(rotationMatrix);
             }
 
-            obj->draw(shaderProgram, camera);
+            obj->draw(shaderProgram, *camera);
         }
  
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -222,6 +228,8 @@ int main()
     for (auto& obj : objects) {
         delete obj;
     }
+
+    delete camera;
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
@@ -296,4 +304,9 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     // make sure the viewport matches the new window dimensions; note that width and 
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
+
+    if (camera && height > 0) {
+        float aspect = static_cast<float>(width) / static_cast<float>(height);
+        camera->setPerspectiveFromFov(60.0f, aspect, 0.1f, 5000.0f);
+    }
 }
