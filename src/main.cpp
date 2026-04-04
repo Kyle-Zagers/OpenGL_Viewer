@@ -304,12 +304,10 @@ void processInput(GLFWwindow *window, bool& rotate, int& mode, Camera& camera)
 // ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-    // make sure the viewport matches the new window dimensions; note that width and 
-    // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
 
     if (camera && height > 0) {
         float aspect = static_cast<float>(width) / static_cast<float>(height);
-        camera->setPerspectiveFromFov(60.0f, aspect, 0.1f, 5000.0f);
+        camera->setPerspectiveFromFov(60.0f, aspect, 0.1f, 100.0f);
     }
 }
