@@ -308,6 +308,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
     if (camera && height > 0) {
         float aspect = static_cast<float>(width) / static_cast<float>(height);
-        camera->setPerspectiveFromFov(60.0f, aspect, 0.1f, 100.0f);
+        camera->setPerspectiveFromFov(60.0f, aspect, 0.1f, 500.0f);
     }
 }

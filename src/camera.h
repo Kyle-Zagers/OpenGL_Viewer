@@ -10,7 +10,7 @@ class Camera {
     glm::mat4 view = glm::mat4(1.0f);
 
     float n = 1.0f;
-    float f = 100.0f;
+    float f = 500.0f;
     float r = 1.0f;
     float l = -1.0f;
     float t = 1.0f;
@@ -48,7 +48,7 @@ class Camera {
 
     public:
     Camera() {
-        setPerspectiveFromFov(60.0f, 16.0f / 9.0f, 0.1f, 100.0f);
+        setPerspectiveFromFov(60.0f, 16.0f / 9.0f, 0.1f, 500.0f);
     }
     
     void setFrustum(float left, float right, float bottom, float top, float near, float far) {
