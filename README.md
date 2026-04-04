@@ -13,6 +13,7 @@ Simply run the command 'make' in the repo's build directory (if you would like y
 - https://github.com/ruange/Gouraud-Shading-and-Phong-Shading
 - https://ogldev.org/www/tutorial16/tutorial16.html
 - https://learnopengl.com/Model-Loading/Model
+- https://casual-effects.com/data/
 - Lecture Slides
 - Class Textbooks:
   1. "Foundations of 3D Computer Graphics", Steven Gortler
