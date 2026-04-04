@@ -17,6 +17,9 @@ in vec3 ourSpecular;
 in vec3 eyePos;
 in vec3 N;
 
+flat in vec3 flatColor;
+flat in vec3 flatSpecular;
+
 out vec4 FragColor;
 
 uniform int mode;
@@ -42,15 +45,9 @@ void main()
         vec3 V = normalize(-eyePos);
         vec3 H = normalize(L + V);
 
-        float lambert = max(dot(normal, L), 0.0);
-        float spec = 0.0;
-        if (lambert > 0.0) {
-            spec = pow(max(dot(normal, H), 0.0), shininess);
-        }
-
-        vec3 ambient  = ambientStrength  * ambientColor;
-        vec3 diffuse  = diffuseStrength  * lambert * lightColor;
-        vec3 specular = specularStrength * spec    * lightColor;
+        vec3 ambient = ambientStrength * ambientColor;
+        vec3 diffuse = diffuseStrength * max(dot(N, L), 0.0) * lightColor;
+        vec3 specular = specularStrength * pow(max(dot(N, H), 0.0), shininess) * lightColor;
 
         finalColor = (ambient + diffuse) * texColor + specular;
     }
@@ -58,7 +55,7 @@ void main()
         finalColor = ourColor * texColor + ourSpecular;
     }
     else if (mode == FLAT_MODE) {
-        finalColor = texColor;
+        finalColor = flatColor * texColor + flatSpecular;
     }
     else if (mode == Z_MODE) {
         finalColor = ourColor;

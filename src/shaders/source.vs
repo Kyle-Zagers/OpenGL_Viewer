@@ -7,6 +7,8 @@ layout (location = 2) in vec3 aNormal;
 out vec2 UVcoord;
 out vec3 ourColor;
 out vec3 ourSpecular;
+flat out vec3 flatColor;
+flat out vec3 flatSpecular;
 
 uniform mat4 model;
 uniform mat4 view;
@@ -66,29 +68,22 @@ void main()
 
         ourColor = vec3(0.0);
 
-    } else if (mode == FLAT_MODE) {
-
-        ourColor = vec3(1.0);
-
-    } else if (mode == GOURAUD_MODE) {
+    } else if (mode == GOURAUD_MODE || mode == FLAT_MODE) {
 
         vec3 lightPosEye = vec3(view * vec4(lightPosWorld, 1.0));
         vec3 L = normalize(lightPosEye - eyePos);
         vec3 V = normalize(-eyePos);
         vec3 H = normalize(L + V);
 
-        float lambert = max(dot(N, L), 0.0);
-        float spec = 0.0;
-        if (lambert > 0.0) {
-            spec = pow(max(dot(N, H), 0.0), shininess);
-        }
-
-        vec3 ambient  = ambientStrength  * ambientColor;
-        vec3 diffuse  = diffuseStrength  * lambert * lightColor;
-        vec3 specular = specularStrength * spec    * lightColor;
+        vec3 ambient = ambientStrength * ambientColor;
+        vec3 diffuse = diffuseStrength * max(dot(N, L), 0.0) * lightColor;
+        vec3 specular = specularStrength * pow(max(dot(N, H), 0.0), shininess) * lightColor;
 
         ourColor = ambient + diffuse;
         ourSpecular = specular;
+
+        flatColor = ambient + diffuse;
+        flatSpecular = specular;
 
     } else {
 
