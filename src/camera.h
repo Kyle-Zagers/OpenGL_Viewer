@@ -9,21 +9,17 @@ class Camera {
     glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, -3.0f);
     glm::mat4 view = glm::mat4(1.0f);
 
-    float n = 1.0f;
-    float f = 500.0f;
-    float r = 1.0f;
-    float l = -1.0f;
-    float t = 1.0f;
-    float b = -1.0f;
+    float n = 0.05f;
+    float f = 100.0f;
+    float r = 0.1f;
+    float l = -0.1f;
+    float t = 0.1f;
+    float b = -0.1f;
 
     glm::mat4 orthographic = glm::mat4(1.0f);
     glm::mat4 perspective = glm::mat4(1.0f);
 
     bool perspectiveMode = true;
-
-    float zoomScale = 1.0f;
-    const float minZoomScale = 0.0001f;
-    const float maxZoomScale = 10.0f;
 
     glm::mat4 projection = glm::mat4(1.0f);
 
@@ -43,12 +39,12 @@ class Camera {
         ));
 
         glm::mat4 baseProjection = perspectiveMode ? (orthographic * perspective) : orthographic;
-        projection = glm::scale(baseProjection, glm::vec3(zoomScale, zoomScale, 1.0f));
+        projection = baseProjection;
     }
 
     public:
     Camera() {
-        setPerspectiveFromFov(60.0f, 16.0f / 9.0f, 0.1f, 500.0f);
+        updateProjection();
     }
     
     void setFrustum(float left, float right, float bottom, float top, float near, float far) {
@@ -75,20 +71,6 @@ class Camera {
     void makeOrthographic() {
         perspectiveMode = false;
         updateProjection();
-    }
-
-    void zoomOut(float step = 0.05f) {
-        zoomScale = std::max(zoomScale - step * zoomScale, minZoomScale);
-        updateProjection();
-    }
-
-    void zoomIn(float step = 0.05f) {
-        zoomScale = std::min(zoomScale + step * zoomScale, maxZoomScale);
-        updateProjection();
-    }
-
-    float getZoomScale() const {
-        return zoomScale;
     }
 
     void moveForward(float offset) {
@@ -145,6 +127,34 @@ class Camera {
 
     glm::mat4 getProjectionMatrix() const {
         return projection;
+    }
+
+    void refreshProjection() {
+        updateProjection();
+    }
+
+    float* getNearPtr() {
+        return &n;
+    }
+
+    float* getFarPtr() {
+        return &f;
+    }
+
+    float* getRightPtr() {
+        return &r;
+    }
+
+    float* getLeftPtr() {
+        return &l;
+    }
+
+    float* getTopPtr() {
+        return &t;
+    }
+
+    float* getBottomPtr() {
+        return &b;
     }
 
 };

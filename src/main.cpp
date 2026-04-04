@@ -284,10 +284,16 @@ void processInput(GLFWwindow *window, bool& rotate, int& mode, Camera& camera)
         camera.makeOrthographic();
     if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
         camera.makePerspective();
-    if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS)
-        camera.zoomIn();
-    if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS)
-        camera.zoomOut();
+    if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS) {
+        float* topPtr = camera.getTopPtr();
+        *topPtr += 0.1f;
+        camera.refreshProjection();
+    }
+    if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS) {
+        float* topPtr = camera.getTopPtr();
+        *topPtr -= 0.1f;
+        camera.refreshProjection();
+    }
 
     // camera rotation
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
@@ -298,6 +304,26 @@ void processInput(GLFWwindow *window, bool& rotate, int& mode, Camera& camera)
         camera.lookRight(1.0f);
     if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
         camera.lookLeft(1.0f);
+
+    if (glfwGetKey(window, GLFW_KEY_LEFT_BRACKET) == GLFW_PRESS) {
+        float* rightPtr = camera.getRightPtr();
+        *rightPtr += 0.1f;
+        camera.refreshProjection();
+    }
+    if (glfwGetKey(window, GLFW_KEY_RIGHT_BRACKET) == GLFW_PRESS) {
+        float* rightPtr = camera.getRightPtr();
+        *rightPtr -= 0.1f;
+        camera.refreshProjection();
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_SEMICOLON) == GLFW_PRESS) {
+        float* topPtr = camera.getTopPtr();
+        float* bottomPtr = camera.getBottomPtr();
+        *topPtr = 0.1f;
+        *bottomPtr = -0.1f;
+
+        camera.refreshProjection();
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -305,9 +331,4 @@ void processInput(GLFWwindow *window, bool& rotate, int& mode, Camera& camera)
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
-
-    if (camera && height > 0) {
-        float aspect = static_cast<float>(width) / static_cast<float>(height);
-        camera->setPerspectiveFromFov(60.0f, aspect, 0.1f, 500.0f);
-    }
 }
