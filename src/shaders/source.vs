@@ -23,9 +23,10 @@ uniform float shininess;
 
 const int PHONG_MODE = 0;
 const int NORMAL_MODE  = 1;
-const int ZBUF_MODE    = 2;
+const int Z_MODE    = 2;
 const int FLAT_MODE    = 3;
 const int GOURAUD_MODE  = 4;
+const int ZPRIME_MODE  = 5;
 
 out vec3 eyePos;
 out vec3 N;
@@ -49,10 +50,21 @@ void main()
 
         ourColor = aNormal * 0.5 + 0.5;
 
-    } else if (mode == ZBUF_MODE) {
+    } else if (mode == Z_MODE) {
 
-        float d = clamp((eyePos.z) / 100.0, 0.0, 1.0);
-        ourColor = vec3(d);
+        float near = 0.1;
+        float far = 100.0;
+
+        float depth = eyePos.z;
+
+        // 0 to 1
+        float z = (depth - near) / (far - near);
+
+        ourColor = vec3(1 - z);
+
+    } else if (mode == ZPRIME_MODE) {
+
+        ourColor = vec3(0.0);
 
     } else if (mode == FLAT_MODE) {
 

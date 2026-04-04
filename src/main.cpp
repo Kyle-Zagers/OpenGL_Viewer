@@ -42,9 +42,10 @@ bool getShadersSource(std::string& vertexShaderCode, std::string& fragmentShader
 enum viewMode {
     PHONG,
     NORMAL,
-    Z_BUFFER,
+    Z,
     FLAT,
-    GOURAUD
+    GOURAUD,
+    ZPRIME
 };
 
 int main()
@@ -251,7 +252,7 @@ void processInput(GLFWwindow *window, bool& rotate, int& mode, Camera& camera)
         glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
 
     if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
-        mode = Z_BUFFER;
+        mode = Z;
     if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
         mode = NORMAL;
     if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
@@ -260,6 +261,8 @@ void processInput(GLFWwindow *window, bool& rotate, int& mode, Camera& camera)
         mode = FLAT;
     if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS)
         mode = GOURAUD;
+    if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS)
+        mode = ZPRIME;
 
     // move camera
     float offset = 0.1f;

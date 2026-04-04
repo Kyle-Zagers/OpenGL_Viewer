@@ -24,9 +24,10 @@ uniform sampler2D uTex;
 
 const int PHONG_MODE   = 0;
 const int NORMAL_MODE  = 1;
-const int ZBUF_MODE    = 2;
+const int Z_MODE    = 2;
 const int FLAT_MODE    = 3;
 const int GOURAUD_MODE = 4;
+const int ZPRIME_MODE  = 5;
 
 void main()
 {
@@ -59,8 +60,14 @@ void main()
     else if (mode == FLAT_MODE) {
         finalColor = texColor;
     }
-    else if (mode == NORMAL_MODE || mode == ZBUF_MODE) {
+    else if (mode == Z_MODE) {
         finalColor = ourColor;
+    }
+    else if (mode == NORMAL_MODE) {
+        finalColor = ourColor;
+    }
+    else if (mode == ZPRIME_MODE) {
+        finalColor = vec3(gl_FragCoord.z * 20.0);
     }
     else {
         finalColor = texColor;

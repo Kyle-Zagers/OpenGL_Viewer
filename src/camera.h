@@ -22,7 +22,7 @@ class Camera {
     bool perspectiveMode = true;
 
     float zoomScale = 1.0f;
-    const float minZoomScale = 0.1f;
+    const float minZoomScale = 0.0001f;
     const float maxZoomScale = 10.0f;
 
     glm::mat4 projection = glm::mat4(1.0f);
@@ -48,7 +48,7 @@ class Camera {
 
     public:
     Camera() {
-        setPerspectiveFromFov(60.0f, 16.0f / 9.0f, 0.1f, 5000.0f);
+        setPerspectiveFromFov(60.0f, 16.0f / 9.0f, 0.1f, 100.0f);
     }
     
     void setFrustum(float left, float right, float bottom, float top, float near, float far) {
