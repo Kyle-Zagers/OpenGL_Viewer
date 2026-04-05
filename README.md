@@ -1,4 +1,3 @@
-# TODO
 # OpenGL Viewer
 Completed rasterization project for CAP4730 - Computational Structures in Computer Graphics
 
